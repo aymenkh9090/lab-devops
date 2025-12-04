@@ -1,4 +1,5 @@
 def commit_id
+
 pipeline {
     agent any
 
@@ -9,32 +10,28 @@ pipeline {
                 sh "git rev-parse --short HEAD > .git/commit-id"
                 script {
                     commit_id = readFile('.git/commit-id').trim()
-                    echo "Commit ID: ${commit_id}"
                 }
             }
         }
 
         stage('Image Build') {
             steps {
-                echo 'Building Docker image...'
-                // Copier si nécessaire, ici on suppose que le Dockerfile est dans le projet
-                sh "docker build -t webapp:${commit_id} ./"
-                echo 'Build complete'
+                echo 'Building...'
+                sh 'scp -r -i $(minikube ssh-key) ./* docker@$(minikube ip):~/'
+                sh "minikube ssh 'docker build -t webapp:${commit_id} ./'"
+                echo 'build complete'
             }
         }
 
         stage('Deploy') {
             steps {
-                echo 'Deploying to Kubernetes...'
-                // Remplacer le tag de l'image dans deployment.yaml
-                sh "sed -i 's|image: .*|image: webapp:${commit_id}|' ./manifests/deployment.yaml"
-                // Appliquer les manifests
-                sh "kubectl apply -f ./manifests/deployment.yaml"
-                sh "kubectl apply -f ./manifests/services.yaml"
-                sh "kubectl get all -n default"
-                echo 'Deployment complete'
+                echo 'Deploying to Kubernetes'
+                sh "sed -i -r 's|richardchesterwood/k8s-fleetman-webapp-angular:release2|webapp:${commit_id}|' ./manifests/deployement.yaml"
+                sh 'kubectl get all'
+                sh 'kubectl apply -f ./manifests/'
+                sh 'kubectl get all'
+                echo 'deployment complete'
             }
         }
     }
 }
-
